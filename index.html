@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filepurge</title>
+</head>
+<body>
+    <canvas id="c" width="800" height="600"></canvas>
+</body>
+<style>
+    html, body {
+        margin: 0;
+        min-height: 100vh;
+        background-color: rgb(29, 0, 0);[]
+    }
+
+    body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    #c {
+        width: 800px;
+        height: 600px;
+    }
+
+    canvas {
+        image-rendering: optimizeSpeed;             /* Older versions of FF          */
+        image-rendering: -moz-crisp-edges;          /* FF 6.0+                       */
+        image-rendering: -o-crisp-edges;            /* OS X & Windows Opera (12.02+) */
+        image-rendering: pixelated;                 /* Awesome future-browsers       */
+        -ms-interpolation-mode: nearest-neighbor;   /* IE                            */
+    }
+</style>
+
+<script src="./dist.js"></script>
+</html>

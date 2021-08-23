@@ -1,0 +1,27 @@
+{
+  "name": "filepurge",
+  "version": "1.0.0",
+  "description": "Game for JS13k.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "concurrently \"npm:build:watch\" \"npm:dev-server\"",
+    "dev-server": "http-server -c-1",
+    "build": "rollup --config rollup.config.js",
+    "build:watch": "rollup --config rollup.config.js --watch"
+  },
+  "keywords": [
+    "game",
+    "js13k"
+  ],
+  "author": "pandrre",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^6.2.1",
+    "http-server": "^13.0.0",
+    "rollup": "^2.56.2",
+    "rollup-plugin-terser": "^7.0.2",
+    "rollup-plugin-typescript2": "^0.30.0",
+    "typescript": "^4.3.5"
+  }
+}
