@@ -5,6 +5,9 @@ const CHAR_HEIGHT = 16;
 const WORLD_WIDTH = 400;
 const WORLD_HEIGHT = 300;
 const SCALE = 2;
+const PLAYER_SPEED = 5;
+const BULLET_SPEED = 7;
+const ANGULAR_SPEED = Math.PI / 16;
 
 function randint(max: number) {
     return Math.floor(Math.random() * max);
@@ -26,17 +29,19 @@ function isColliding(r1: Rect, r2: Rect) {
 }
 
 class Char {
-    constructor(private charsetCoordinates: [x: number, y: number]) {}
+    constructor(private charsetCoordinates: [x: number, y: number], private color: string) {}
+
+    public get paintColor() {
+        return this.color;
+    }
 
     public get coords() {
         return this.charsetCoordinates;
     }
 }
 
-type DrawingRect = [sx: number, sy: number, sWidth: number, sHeight: number,
-    dx: number, dy: number, dWidth: number, dHeight: number];
 interface Drawable {
-    getDrawingRect: () => DrawingRect,
+    getChar: () => Char,
 }
 
 interface Positionable {
@@ -50,11 +55,16 @@ class Actor implements Drawable, Positionable {
     private char: Char;
     private x: number;
     private y: number;
+    public direction: number = 0;
 
     constructor(x: number, y: number, char: Char) {
         this.x = x;
         this.y = y;
         this.char = char;
+    }
+
+    public getChar(): Char {
+        return this.char;
     }
 
     public setPosition(x: number, y: number) {
@@ -73,19 +83,6 @@ class Actor implements Drawable, Positionable {
     public addY(value: number) {
         this.y += value;
     }
-
-    public getDrawingRect(): DrawingRect {
-        return [
-            this.char.coords[0] * CHAR_WIDTH,
-            this.char.coords[1] * CHAR_HEIGHT,
-            CHAR_WIDTH,
-            CHAR_HEIGHT,
-            this.x * SCALE,
-            this.y * SCALE,
-            CHAR_WIDTH * SCALE,
-            CHAR_HEIGHT * SCALE,
-        ];
-    }
 }
 
 class GameControl {
@@ -95,7 +92,12 @@ class GameControl {
         left: false,
         right: false,
         x: false,
+        z: false,
+        c: false,
     };
+
+    private shootLock = false;
+    private angleLock = false;
 
     private toggleFunction(value: boolean) {
         return (e: KeyboardEvent) => {
@@ -114,6 +116,13 @@ class GameControl {
                     break;
                 case "x":
                     this.keyState.x = value;
+                    break;
+                case "z":
+                    this.keyState.z = value;
+                    break;
+                case "c":
+                    this.keyState.c = value;
+                    break;
             }
         }
     }
@@ -129,13 +138,35 @@ class GameControl {
     }
 
     handle(receiver: (bullet: Bullet | null) => void) {
-        this.keyState.up && this.player.addY(-5);
-        this.keyState.down && this.player.addY(5);
-        this.keyState.left && this.player.addX(-5);
-        this.keyState.right && this.player.addX(5);
+        const [x, y] = this.player.getPosition();
 
-        if (this.keyState.x) {
-            receiver(new Bullet(...this.player.getPosition(), 0));
+        this.keyState.up && !(y - PLAYER_SPEED < 0) && this.player.addY(-PLAYER_SPEED);
+        this.keyState.down && !(y + PLAYER_SPEED > WORLD_HEIGHT - CHAR_HEIGHT + 4) && this.player.addY(PLAYER_SPEED);
+        this.keyState.left && !(x - PLAYER_SPEED < 0) && this.player.addX(-PLAYER_SPEED);
+        this.keyState.right && !(x + PLAYER_SPEED > WORLD_WIDTH - CHAR_WIDTH) && this.player.addX(PLAYER_SPEED);
+
+        if (!this.angleLock && (this.keyState.z || this.keyState.c)) {
+            if (this.keyState.z) {
+                this.player.direction += ANGULAR_SPEED;
+                if (this.player.direction >= 2 * Math.PI) {
+                    this.player.direction -= 2 * Math.PI;
+                }
+            }
+            if (this.keyState.c) {
+                this.player.direction -= ANGULAR_SPEED;
+                if (this.player.direction < 0) {
+                    this.player.direction += 2 * Math.PI;
+                }
+            }
+
+            this.angleLock = true;
+            setTimeout(() => this.angleLock = false, 50);
+        }
+
+        if (this.keyState.x && !this.shootLock) {
+            receiver(new Bullet(...this.player.getPosition(), this.player.direction));
+            this.shootLock = true;
+            setTimeout(() => this.shootLock = false, 200);
         }
         else {
             receiver(null);
@@ -149,20 +180,22 @@ class Bullet {
     private direction: number;
 
     constructor(x: number, y: number, direction: number) {
-        this.actor = new Actor(x, y, new Char([7, 0]));
+        this.actor = new Actor(x, y, new Char([7, 0], '#eded04'));
         this.direction = direction;
     }
 
     public travel() {
         const [x, y] = this.actor.getPosition();
-        const [dx, dy] = [10 * Math.cos(this.direction), 10 * Math.sin(this.direction)];
-        this.actor.setPosition(x + dx, y + dy);
+        const [dx, dy] = [BULLET_SPEED * Math.cos(this.direction), BULLET_SPEED * Math.sin(this.direction)];
+        this.actor.setPosition(x + dx, y - dy);
     }
 }
 
 class Renderer {
     private canvas: HTMLCanvasElement;
     private context: CanvasRenderingContext2D;
+    private buffer: HTMLCanvasElement;
+    private bufferContext: CanvasRenderingContext2D;
     private readonly charset: HTMLImageElement;
 
     constructor(charset: HTMLImageElement) {
@@ -170,29 +203,52 @@ class Renderer {
         this.context = this.canvas.getContext('2d')!;
         this.context.imageSmoothingEnabled = false;
 
+        this.buffer = document.getElementById('buffer') as HTMLCanvasElement;
+        this.bufferContext = this.buffer.getContext('2d')!;
+
         this.charset = charset;
     }
 
     private paintBackground() {
-        this.context.fillStyle = '#213048';
+        this.context.fillStyle = '#363636';
         this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    private setCharColor(color: string) {
+        this.bufferContext.save();
+        this.bufferContext.clearRect(0, 0 , this.buffer.width, this.buffer.height);
+        this.bufferContext.drawImage(this.charset, 0, 0);
+        this.bufferContext.fillStyle = color;
+        this.bufferContext.globalCompositeOperation = "source-in";
+        this.bufferContext.fillRect(0, 0, this.buffer.width, this.buffer.width);
+        this.bufferContext.restore();
     }
 
     private clear() {
         this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
-    public render(...drawables: Drawable[]) {
+    public render(...objects: Array<Drawable & Positionable>) {
         this.clear();
         this.paintBackground();
 
-        for (const drawable of drawables) {
-            this.context.drawImage(this.charset, ...drawable.getDrawingRect());
-        }
-    }
+        for (const object of objects) {
+            const [x, y] = object.getPosition();
 
-    public get dimensions() {
-        return [this.canvas.width, this.canvas.height];
+            this.setCharColor(object.getChar().paintColor);
+
+            this.context.drawImage(
+                this.buffer,
+                object.getChar().coords[0] * CHAR_WIDTH,
+                object.getChar().coords[1] * CHAR_HEIGHT,
+                CHAR_WIDTH,
+                CHAR_HEIGHT,
+                x * SCALE,
+                y * SCALE,
+                CHAR_WIDTH * SCALE,
+                CHAR_HEIGHT * SCALE,
+            );
+        }
     }
 }
 
@@ -206,7 +262,7 @@ class Game {
     private shouldGenerateEnemies = false;
 
     constructor() {
-        this.player = new Actor(0, 0, new Char([0, 2]));
+        this.player = new Actor(0, 0, new Char([0, 2], '#dcdcdc'));
         this.control = new GameControl(this.player);
 
         setInterval(() => {
@@ -220,11 +276,10 @@ class Game {
     }
 
     private generateRandomEnemy() {
-        const [w, h] = this.renderer!.dimensions;
-        const y = randint(h - CHAR_HEIGHT);
-        const x = w + CHAR_WIDTH;
+        const y = randint(WORLD_HEIGHT - CHAR_HEIGHT);
+        const x = WORLD_WIDTH + CHAR_WIDTH;
 
-        this.enemyList.add(new Actor(x, y, new Char([21, 0])));
+        this.enemyList.add(new Actor(x, y, new Char([21, 0], '#dc0000')));
         this.shouldGenerateEnemies = false;
     }
 
@@ -271,7 +326,11 @@ class Game {
         this.updateEnemies();
         this.updateBullets();
 
-        this.renderer!.render(this.player, ...this.enemyList, ...(Array.from(this.bulletList).map(bullet => bullet.actor)));
+        this.renderer!.render(
+            this.player,
+            ...this.enemyList,
+            ...(Array.from(this.bulletList).map(bullet => bullet.actor))
+        );
         requestAnimationFrame(() => this.gameLoop());
     }
 }
