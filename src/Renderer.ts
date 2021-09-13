@@ -1,4 +1,4 @@
-import {CHAR_HEIGHT, CHAR_WIDTH, Drawable, Positionable, SCALE} from "./globals";
+import {CHAR_HEIGHT, CHAR_WIDTH, COLORS, Drawable, Positionable, randint, randomColor, SCALE} from "./globals";
 
 export class Renderer {
     private canvas: HTMLCanvasElement;
@@ -19,22 +19,38 @@ export class Renderer {
     }
 
     private paintBackground() {
-        this.context.fillStyle = '#363636';
+        this.context.fillStyle = COLORS.BLACK;
         this.context.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
-    private setCharColor(color: string) {
+    private setCharColor(color: string, backgroundColor: string | null) {
         this.bufferContext.save();
         this.bufferContext.clearRect(0, 0 , this.buffer.width, this.buffer.height);
+
         this.bufferContext.drawImage(this.charset, 0, 0);
         this.bufferContext.fillStyle = color;
         this.bufferContext.globalCompositeOperation = "source-in";
         this.bufferContext.fillRect(0, 0, this.buffer.width, this.buffer.width);
         this.bufferContext.restore();
+
+        if (backgroundColor) {
+            this.bufferContext.fillStyle = randomColor();
+            this.bufferContext.globalCompositeOperation = "destination-over";
+            this.bufferContext.fillRect(0, 0, this.buffer.width, this.buffer.height)
+            this.bufferContext.restore();
+        }
     }
 
     private clear() {
         this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+
+    public renderHUD(score: number, corrupted: number) {
+        this.context.font = "16px 'Fira Mono', 'Lucida Console', monospace, sans-serif"
+        this.context.fillStyle = COLORS.WHITE
+        this.context.fillText(`FREED SPACE: ${score}kb`, 10, 20)
+        this.context.fillStyle = COLORS.RED
+        this.context.fillText(`CORRUPTED DATA: ${corrupted}kb`, 10, 42)
     }
 
     public render(...objects: Array<Drawable & Positionable>) {
@@ -44,7 +60,7 @@ export class Renderer {
         for (const object of objects) {
             const [x, y] = object.getPosition();
 
-            this.setCharColor(object.getChar().paintColor);
+            this.setCharColor(object.getChar().color, object.getChar().backgroundColor || null);
 
             this.context.drawImage(
                 this.buffer,

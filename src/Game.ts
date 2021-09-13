@@ -1,10 +1,12 @@
 import {loadCharset} from "./loadCharset";
 import {Actor} from "./Actor";
 import {GameControl} from "./GameControl";
-import {CHAR_HEIGHT, CHAR_WIDTH, isColliding, randint, WORLD_HEIGHT, WORLD_WIDTH} from "./globals";
+import {CHAR_HEIGHT, CHAR_WIDTH, COLORS, isColliding, randint, randomColor, WORLD_HEIGHT, WORLD_WIDTH} from "./globals";
 import {Bullet} from "./Bullet";
 import {Char} from "./Char";
 import {Renderer} from "./Renderer";
+
+const FILESIZE = 250
 
 export class Game {
     private player: Actor;
@@ -13,18 +15,20 @@ export class Game {
     private renderer?: Renderer;
     private enemyList: Set<Actor> = new Set();
     private bulletList: Set<Bullet> = new Set();
+    private counter = 0;
 
     private shouldGenerateEnemies = false;
     private score = 0;
+    private corrupted = 0;
 
     constructor() {
-        this.player = new Actor(0, 0, new Char([0, 2], '#dcdcdc'));
-        this.aim = new Actor(0, 0, new Char([7, 0], '#dcdcdc'));
+        this.player = new Actor(CHAR_WIDTH, WORLD_HEIGHT/2, new Char([0, 2], COLORS.WHITE));
+        this.aim = new Actor(0, 0, new Char([7, 0], COLORS.WHITE));
         this.control = new GameControl(this.player);
 
         setInterval(() => {
             this.shouldGenerateEnemies = true;
-        }, 1000)
+        }, 500)
 
         loadCharset().then(charset => {
             this.renderer = new Renderer(charset);
@@ -32,12 +36,47 @@ export class Game {
         });
     }
 
-    private generateRandomEnemy() {
-        const y = randint(WORLD_HEIGHT - CHAR_HEIGHT);
-        const x = WORLD_WIDTH + CHAR_WIDTH;
+    private getRandomChar(): [x: number, y: number] {
+        const x = randint(31);
+        const y = randint(7);
 
-        this.enemyList.add(new Actor(x, y, new Char([21, 0], '#dc0000')));
-        this.shouldGenerateEnemies = false;
+        if (x == 0 && y == 0 || x == 0 && y == 1 || x == 31 && y == 7) {
+            return this.getRandomChar();
+        }
+
+        return [x, y];
+    }
+
+    private generateRandomEnemy() {
+        if (this.counter < 100) {
+            const y = randint(WORLD_HEIGHT - CHAR_HEIGHT);
+            const x = WORLD_WIDTH + CHAR_WIDTH;
+
+            if (randint(100) > 70) {
+                const char = new Char(this.getRandomChar(), COLORS.WHITE);
+                this.enemyList.add(new Actor(x, y, char));
+                this.shouldGenerateEnemies = false;
+            }
+            else {
+                const char = new Char([randint(31), randint(16)], randomColor(), COLORS.RED);
+                this.enemyList.add(new Actor(x, y, char, true));
+                this.shouldGenerateEnemies = false;
+            }
+        }
+    }
+
+    private winGame() {
+        alert(`Task succeeded. Freed ${this.score}kb on disk.`)
+        const hiscore = localStorage.getItem('filepurge-score')
+        if (hiscore) {
+            if (this.score > Number(hiscore)) {
+                localStorage.setItem('filepurge-score', String(this.score))
+            }
+        }
+        else {
+            localStorage.setItem('filepurge-score', String(this.score))
+        }
+        location.reload()
     }
 
     private updateEnemies() {
@@ -45,6 +84,9 @@ export class Game {
             enemy.addX(-2);
             if (enemy.getPosition()[0] < 0 - CHAR_WIDTH) {
                 this.enemyList.delete(enemy);
+                if (this.counter == 100) {
+                    this.winGame()
+                }
             }
         }
     }
@@ -66,7 +108,19 @@ export class Game {
                     )) {
                         this.enemyList.delete(enemy);
                         this.bulletList.delete(bullet);
-                        this.score += 100;
+                        if (enemy.isDestroyable) {
+                            this.score += FILESIZE
+                            if (this.counter == 100) {
+                                this.winGame()
+                            }
+                        }
+                        else {
+                            this.corrupted += FILESIZE
+                            if (this.corrupted >= 5000) {
+                                alert('Filesystem corrupted. Aborting...')
+                                location.reload()
+                            }
+                        }
                     }
                 }
             }
@@ -75,6 +129,10 @@ export class Game {
 
     private setAimPosition(offset = 10) {
         this.aim.setPosition(...this.player.getAngledPosition(offset));
+    }
+
+    private drawHUD() {
+        this.renderer?.renderHUD(this.score, this.corrupted);
     }
 
     private gameLoop() {
@@ -98,6 +156,7 @@ export class Game {
             ...this.enemyList,
             ...(Array.from(this.bulletList).map(bullet => bullet.actor))
         );
+        this.drawHUD();
         requestAnimationFrame(() => this.gameLoop());
     }
 }

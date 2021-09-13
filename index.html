@@ -7,8 +7,11 @@
     <title>Filepurge</title>
 </head>
 <body>
+    <p>You are a disk cleanup software. Get rid of all the blinking unnecessary files. DON'T kill the perfectly average,
+    system critical files.<br>X to shoot your cleaning rm command, Z and C to angle.</p>
+    <p><b>HIGH SCORE:</b> <span id="score">0</span></p>
     <canvas id="c" width="800" height="600"></canvas>
-    <canvas id="buffer" width="256" height="128" style="display: none;"></canvas>
+    <canvas id="buffer" width="256" height="128" style="display:none;"></canvas>
 </body>
 <style>
     html, body {
@@ -21,6 +24,10 @@
         display: flex;
         justify-content: center;
         align-items: center;
+        flex-flow: column;
+        color: whitesmoke;
+        font-family: 'Fira Mono', 'Lucida Console', monospace;
+        text-align: center;
     }
 
     #c {

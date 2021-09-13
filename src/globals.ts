@@ -38,3 +38,27 @@ export interface Positionable {
     addX: (value: number) => void,
     addY: (value: number) => void,
 }
+
+export const COLORS = {
+    BLACK: '#000000',
+    DGREY: '#626262',
+    GREY: '#898989',
+    LGREY: '#adadad',
+    WHITE: '#ffffff',
+    RED: '#9f4e44',
+    LRED: '#cb7e75',
+    BROWN: '#6d5412',
+    LBROWN: '#a1683c',
+    YELLOW: '#c9d487',
+    LGREEN: '#9ae29b',
+    GREEN: '#5cab5e',
+    BLUE: '#5abfc6',
+    LPURPLE: '#887ecb',
+    PURPLE: '#50459b',
+    PINK: '#a057a3',
+};
+
+export function randomColor() {
+    const colorList = Object.values(COLORS);
+    return colorList[randint(colorList.length + 1)];
+}

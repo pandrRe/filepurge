@@ -6,11 +6,13 @@ export class Actor implements Drawable, Positionable {
     private x: number;
     private y: number;
     public direction: number = 0;
+    public readonly isDestroyable: boolean;
 
-    constructor(x: number, y: number, char: Char) {
+    constructor(x: number, y: number, char: Char, isDestroyable = false) {
         this.x = x;
         this.y = y;
         this.char = char;
+        this.isDestroyable = isDestroyable;
     }
 
     public getChar(): Char {

@@ -1,13 +1,13 @@
 import {Actor} from "./Actor";
 import {Char} from "./Char";
-import {BULLET_SPEED} from "./globals";
+import {BULLET_SPEED, COLORS} from "./globals";
 
 export class Bullet {
     public actor: Actor;
     private direction: number;
 
     constructor(x: number, y: number, direction: number) {
-        this.actor = new Actor(x, y, new Char([7, 0], '#eded04'));
+        this.actor = new Actor(x, y, new Char([7, 0], COLORS.YELLOW));
         this.direction = direction;
     }
 
